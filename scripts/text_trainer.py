@@ -288,7 +288,11 @@ def main():
         tokenize_cmd = f"python tokenize_grpo.py {request_path}"
         train_cmd = train_info["run_cmd"]
     else:
-        raise ValueError(f"Task type {args.task_type} not supported")
+        train_info = get_instruct_training_json(train_info)
+        tokenize_cmd = (
+            f"/workspace/axo_py/bin/python tokenize_instruct.py {request_path}"
+        )
+        train_cmd = train_info["run_cmd"]
 
     with open(request_path, "w") as f:
         json.dump(train_info, f, indent=4, ensure_ascii=False)
