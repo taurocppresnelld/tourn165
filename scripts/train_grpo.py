@@ -264,7 +264,7 @@ def get_reward_funcs(dataset_type: dict, sample_data, has_extra_column: bool):
             print(f"Invalid reward function:\n{reward_func_str}")
             raise ValueError(f"Invalid reward function: {error_msg}")
 
-        reward_weight = reward_weights_list[i]
+        reward_weight = float(reward_weights_list[i])
         reward_funcs_callable.append(reward_func_callable)
 
         func_name = getattr(reward_function, "name", f"reward_func_{i}")
