@@ -81,7 +81,7 @@ class CustomEvalSaveCallback(TrainerCallback):
 
             elif when_to_eval["reason"] == "periodic":
                 log_path = os.path.join(self.output_dir, "log_history.json")
-                log_avg = state.log_history[-5:]
+                log_avg = state.log_history[-10:]
 
                 # Collect all logged losses
                 losses = [
@@ -130,7 +130,7 @@ class CustomEvalSaveCallback(TrainerCallback):
                                             g["lr"] *= 0.5
 
                                     with open(log_path, "w") as f:
-                                        log_dummy = state.log_history[-5:]
+                                        log_dummy = state.log_history[-10:]
                                         json.dump(log_dummy, f, ensure_ascii=False)
 
                                     control.should_evaluate = False
@@ -169,12 +169,17 @@ class CustomEvalSaveCallback(TrainerCallback):
                                 g["lr"] *= 0.5
 
                         with open(log_path, "w") as f:
-                            log_dummy = state.log_history[-5:]
+                            log_dummy = state.log_history[-10:]
                             json.dump(log_dummy, f, ensure_ascii=False)
 
                         control.should_evaluate = False
                         control.should_save = False
                         self.save_only = False
+
+                    if state.global_step % 100 == 0:
+                        control.should_evaluate = False
+                        control.should_save = True
+                        self.save_only = True
 
                     new_lr = optimizer.param_groups[0]["lr"]
                     print(f"lr new: {new_lr}", flush=True)
