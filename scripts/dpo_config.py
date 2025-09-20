@@ -154,7 +154,7 @@ def get_run_cmd(config: dict, gpu_nums: int):
     --gradient_accumulation_steps {gradient_accumulation_steps} \
     --eval_accumulation_steps 1 \
     --eval_strategy no \
-    --save_strategy steps \
+    --save_strategy epoch \
     --logging_steps 5 \
     --learning_rate {learning_rate} \
     --weight_decay 0. \

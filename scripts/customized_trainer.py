@@ -73,6 +73,12 @@ class CustomEvalSaveCallback(TrainerCallback):
                     print(f"No checkpoint found, just save the model at step: {state.global_step}", flush=True)
                     control.should_evaluate = False
                     self.save_only = False
+                    
+            elif when_to_eval["reason"] == "epoch":
+                control.should_evaluate = False
+                control.should_save = True
+                self.save_only = True
+
             elif when_to_eval["reason"] == "periodic":
                 log_path = os.path.join(self.output_dir, "log_history.json")
                 log_avg = state.log_history[-5:]
@@ -83,14 +89,18 @@ class CustomEvalSaveCallback(TrainerCallback):
                 ]
 
                 if losses:
-                    print(f"\nlog_history: {log_avg}", flush=True)
+                    # print(f"\nlog_history: {log_avg}", flush=True)
 
                     avg_loss = sum(losses) / len(losses)
                     print(f"\nAverage loss: {avg_loss}", flush=True)
+                    print(f"len history: {len(log_avg)}", flush=True)
 
                     # control.should_evaluate = False
                     # control.should_save = True
                     # self.save_only = True
+
+                    optimizer = kwargs["optimizer"]
+                    scheduler = kwargs.get("lr_scheduler", None)
 
                     if os.path.isfile(log_path):
                         with open(log_path, "r") as file:
@@ -111,10 +121,11 @@ class CustomEvalSaveCallback(TrainerCallback):
                                 if last_loss*1.0 >= avg_loss:
                                     # print(f"log_history last: {log_path}", flush=True)
 
-                                    for g in kwargs["optimizer"].param_groups:
+                                    for g in optimizer.param_groups:
                                         print(f"lr: {g['lr']}", flush=True)
                                         if g["lr"] < 0.0001:
-                                            g["lr"] *= 1.03
+                                            # g["lr"] *= 1.03
+                                            g["lr"] += 2*0.000001
                                         else:
                                             g["lr"] *= 0.5
 
@@ -123,16 +134,17 @@ class CustomEvalSaveCallback(TrainerCallback):
                                         json.dump(log_dummy, f, ensure_ascii=False)
 
                                     control.should_evaluate = False
-                                    control.should_save = True
-                                    self.save_only = True
+                                    control.should_save = False
+                                    self.save_only = False
 
                                 else:
                                     print(f"No saved", flush=True)
 
-                                    for g in kwargs["optimizer"].param_groups:
+                                    for g in optimizer.param_groups:
                                         print(f"lr: {g['lr']}", flush=True)
                                         if g["lr"] > 0.0000005:
-                                            g["lr"] *= 0.99
+                                            # g["lr"] *= 0.99
+                                            g["lr"] -= 1*0.000001
                                         else:
                                             g["lr"] *= 1.5
 
@@ -148,13 +160,28 @@ class CustomEvalSaveCallback(TrainerCallback):
 
                         # print(f"log_history new: {log_path}", flush=True)
 
+                        for g in optimizer.param_groups:
+                            print(f"lr: {g['lr']}", flush=True)
+                            if g["lr"] < 0.0001:
+                                # g["lr"] *= 1.03
+                                g["lr"] += 2*0.000001
+                            else:
+                                g["lr"] *= 0.5
+
                         with open(log_path, "w") as f:
                             log_dummy = state.log_history[-5:]
                             json.dump(log_dummy, f, ensure_ascii=False)
 
                         control.should_evaluate = False
-                        control.should_save = True
-                        self.save_only = True
+                        control.should_save = False
+                        self.save_only = False
+
+                    new_lr = optimizer.param_groups[0]["lr"]
+                    print(f"lr new: {new_lr}", flush=True)
+
+                    if scheduler is not None:
+                        # overwrite all base_lrs
+                        scheduler.base_lrs = [new_lr for _ in scheduler.base_lrs]
 
                 else:
                     print("No losses found in log_history", flush=True)
