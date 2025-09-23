@@ -40,7 +40,8 @@ class CustomEvalSaveCallback(TrainerCallback):
         submission_dir: str,
         output_dir: str,
         original_model_name: str,
-        max_steps: int = -1
+        max_steps: int = -1,
+        epoch_steps: int = 0
     ):
         self.function_when_to_evaluate = function_when_to_evaluate
         self.submission_dir = submission_dir
@@ -50,6 +51,7 @@ class CustomEvalSaveCallback(TrainerCallback):
         self.output_dir = output_dir
         self.original_model_name = original_model_name
         self.max_steps = max_steps
+        self.epoch_steps = epoch_steps
         self.has_checkpoint = False
         self.save_only = False
         
@@ -72,7 +74,8 @@ class CustomEvalSaveCallback(TrainerCallback):
                 if not self.has_checkpoint: # if there is no checkpoint, we just save the model, do not evaluate
                     print(f"No checkpoint found, just save the model at step: {state.global_step}", flush=True)
                     control.should_evaluate = False
-                    self.save_only = False
+                    control.should_save = True
+                    self.save_only = True
                     
             elif when_to_eval["reason"] == "epoch":
                 control.should_evaluate = False
@@ -119,15 +122,12 @@ class CustomEvalSaveCallback(TrainerCallback):
                                 # self.save_only = True
 
                                 if last_loss*1.0 >= avg_loss:
-                                    # print(f"log_history last: {log_path}", flush=True)
+                                    print(f"Add lr", flush=True)
 
                                     for g in optimizer.param_groups:
                                         print(f"lr: {g['lr']}", flush=True)
-                                        if g["lr"] < 0.0001:
-                                            # g["lr"] *= 1.03
-                                            g["lr"] += 2*0.000001
-                                        else:
-                                            g["lr"] *= 0.5
+                                        # g["lr"] *= 1.03
+                                        g["lr"] += 2*0.000001
 
                                     with open(log_path, "w") as f:
                                         log_dummy = state.log_history[-10:]
@@ -137,16 +137,29 @@ class CustomEvalSaveCallback(TrainerCallback):
                                     control.should_save = False
                                     self.save_only = False
 
-                                else:
-                                    print(f"No saved", flush=True)
+                                elif last_loss*1.2 < avg_loss:
+                                    print(f"Reset lr", flush=True)
+                                    for g in optimizer.param_groups:
+                                        print(f"lr: {g['lr']}", flush=True)
+                                        # g["lr"] *= 1.03
+                                        # g["lr"] += 2*0.000001
+                                        g["lr"] = 0.000005
+
+                                    with open(log_path, "w") as f:
+                                        log_dummy = state.log_history[-10:]
+                                        json.dump(log_dummy, f, ensure_ascii=False)
+
+                                    control.should_evaluate = False
+                                    control.should_save = False
+                                    self.save_only = False
+
+                                elif last_loss < avg_loss:
+                                    print(f"Reduce lr", flush=True)
 
                                     for g in optimizer.param_groups:
                                         print(f"lr: {g['lr']}", flush=True)
-                                        if g["lr"] > 0.0000005:
-                                            # g["lr"] *= 0.99
-                                            g["lr"] -= 1*0.000001
-                                        else:
-                                            g["lr"] *= 1.5
+                                        # g["lr"] *= 0.99
+                                        g["lr"] -= 1*0.000001
 
                                     control.should_evaluate = False
                                     control.should_save = False
@@ -176,6 +189,7 @@ class CustomEvalSaveCallback(TrainerCallback):
                         control.should_save = False
                         self.save_only = False
 
+                    # if state.global_step % int(self.epoch_steps/2) == 0:
                     if state.global_step % 100 == 0:
                         control.should_evaluate = False
                         control.should_save = True

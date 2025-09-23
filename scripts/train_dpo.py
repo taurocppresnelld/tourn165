@@ -278,7 +278,8 @@ def main():
                 train_request["submission_dir"],
                 training_args.output_dir,
                 train_request["model_name"],
-                max_steps
+                max_steps,
+                total_steps_per_epoch
             )
         ],
     )
